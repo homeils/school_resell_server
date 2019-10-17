@@ -1,15 +1,23 @@
 package com.renoside.schoolresell.controller;
 
+import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
+import com.renoside.schoolresell.entity.EaseMob;
 import com.renoside.schoolresell.entity.User;
 import com.renoside.schoolresell.exception.UnauthorizedException;
+import com.renoside.schoolresell.repository.EaseMobRepository;
 import com.renoside.schoolresell.repository.UserRepository;
 
+import okhttp3.*;
+import okhttp3.RequestBody;
+import org.apache.tomcat.util.ExceptionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -17,7 +25,10 @@ public class UserController {
 
     @Autowired
     private UserRepository userRepository;
+    @Autowired
+    private EaseMobRepository easeMobRepository;
 
+    long lastTime = System.currentTimeMillis();
     private Logger logger = LoggerFactory.getLogger(getClass());
 
     /**
@@ -44,6 +55,7 @@ public class UserController {
             User result = userRepository.save(login);
             jsonObject.put("userId", result.getUserId());
             jsonObject.put("token", result.getToken());
+            jsonObject.put("easemob_token", getEaseMobToken(easeMobRepository));
             jsonObject.put("message", "新用户注册");
             return jsonObject.toJSONString();
         } else if (userRepository.existsByLoginName(loginName) &&
@@ -55,6 +67,7 @@ public class UserController {
             jsonObject.put("userId", result.getUserId());
             jsonObject.put("token", result.getToken());
             jsonObject.put("message", "老用户登录");
+            jsonObject.put("easemob_token", getEaseMobToken(easeMobRepository));
             return jsonObject.toJSONString();
         } else {
             /**
@@ -256,6 +269,69 @@ public class UserController {
             return true;
         } else {
             return false;
+        }
+    }
+
+    /**
+     * 获取环信Api的Token
+     *
+     * @param easeMobRepository
+     * @return
+     */
+    public String getEaseMobToken(EaseMobRepository easeMobRepository) {
+        logger.info("easemob: " + "上一次请求环信token时间: " + lastTime);
+        long nowTime = System.currentTimeMillis();
+        logger.info("easemob: " + "本次请求token时间: " + nowTime);
+        long intervalTime = nowTime - lastTime;
+        logger.info("easemob: " + "请求间隔（秒）: " + intervalTime / 1000);
+        if ((intervalTime / 1000 / 3600 / 24) >= 20) {
+            easeMobRepository.deleteAll();
+            lastTime = nowTime;
+        }
+        List<EaseMob> easeMob = easeMobRepository.findAll();
+        if (easeMob == null || easeMob.size() == 0) {
+            /**
+             * 数据库没有token，发送请求获取token
+             */
+            logger.info("easemob: " + "向环信请求token");
+            JSONObject jsonObject = new JSONObject();
+            jsonObject.put("grant_type", "client_credentials");
+            jsonObject.put("client_id", "YXA6hHqwzWVlQbmIXg-VH68v0Q");
+            jsonObject.put("client_secret", "YXA62na7-kJ4SkBtTITfAkbhXf0C0t0");
+            MediaType Json = MediaType.parse("application/json; charset=utf-8");
+            RequestBody requestBody = RequestBody.create(Json, jsonObject.toJSONString());
+            Request request = new Request.Builder()
+                    .url("http://a1.easemob.com/1100191016019699/renoside/token")
+                    .addHeader("Content-Type", "application/json")
+                    .post(requestBody)
+                    .build();
+            OkHttpClient okHttpClient = new OkHttpClient();
+            Response response = null;
+            try {
+                response = okHttpClient.newCall(request).execute();
+                logger.info("easemob: " + response.code());
+                String easeMobResult = response.body().string();
+                logger.info("easemob: " + easeMobResult);
+                JSONObject result = JSON.parseObject(easeMobResult);
+                EaseMob saveDate = new EaseMob();
+                saveDate.setApplication(result.getString("application"));
+                saveDate.setAccessToken(result.getString("access_token"));
+                saveDate.setExpiresIn("expires_in");
+                easeMobRepository.save(saveDate);
+                return result.getString("access_token");
+            } catch (IOException e) {
+                e.printStackTrace();
+                return "";
+            } finally {
+                if (response != null)
+                    response.close();
+            }
+        } else {
+            /**
+             * 数据库中有token，直接返回token
+             */
+            logger.info("easemob: " + "请求已有的环信token");
+            return easeMob.get(0).getAccessToken();
         }
     }
 }
