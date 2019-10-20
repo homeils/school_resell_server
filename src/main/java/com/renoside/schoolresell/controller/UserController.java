@@ -4,6 +4,7 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.renoside.schoolresell.entity.EaseMob;
 import com.renoside.schoolresell.entity.User;
+import com.renoside.schoolresell.exception.ForbiddenException;
 import com.renoside.schoolresell.exception.UnauthorizedException;
 import com.renoside.schoolresell.repository.EaseMobRepository;
 import com.renoside.schoolresell.repository.UserRepository;
@@ -100,6 +101,25 @@ public class UserController {
             return jsonObject.toJSONString();
         } else {
             throw new UnauthorizedException();
+        }
+    }
+
+    /**
+     * 根据用户ID查询用户名
+     *
+     * @param userId 提供用户ID
+     * @return 返回用户详细信息
+     */
+    @GetMapping("/user/{userId}/username")
+    public String getUserInfo(@PathVariable("userId") String userId) {
+        logger.info("查询" + "userId=" + userId + "的用户名");
+        User result = userRepository.findById(userId).get();
+        JSONObject jsonObject = new JSONObject();
+        if (result != null) {
+            jsonObject.put("userName", result.getLoginName());
+            return jsonObject.toJSONString();
+        } else {
+            throw new ForbiddenException();
         }
     }
 
