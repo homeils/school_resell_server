@@ -4,8 +4,11 @@ import com.alibaba.fastjson.JSONObject;
 
 import com.renoside.schoolresell.entity.Goods;
 import com.renoside.schoolresell.entity.GoodsImgs;
+import com.renoside.schoolresell.entity.GoodsLikes;
+import com.renoside.schoolresell.exception.ForbiddenException;
 import com.renoside.schoolresell.exception.UnauthorizedException;
 import com.renoside.schoolresell.repository.GoodsImgsRepository;
+import com.renoside.schoolresell.repository.GoodsLikesRepository;
 import com.renoside.schoolresell.repository.GoodsRepository;
 import com.renoside.schoolresell.repository.UserRepository;
 
@@ -69,6 +72,42 @@ public class GoodsController {
     @GetMapping("/goods")
     public String getAllGoods() {
         List<Goods> goodsList = goodsRepository.findByGoodsStatus(Goods.STATUS_SELLING);
+        Map[] goodsArray = new Map[goodsList.size()];
+        for (int i = 0; i < goodsList.size(); i++) {
+            Map<String, Object> goodsMap = new HashMap<>();
+            goodsMap.put("goodsId", goodsList.get(i).getGoodsId());
+            goodsMap.put("sellerId", goodsList.get(i).getUserId());
+            List<GoodsImgs> goodsImgsList = goodsImgsRepository.findByGoodsId(goodsList.get(i).getGoodsId());
+            Map[] imgsArray = new Map[goodsImgsList.size()];
+            for (int j = 0; j < goodsImgsList.size(); j++) {
+                Map<String, Object> imgsMap = new HashMap<>();
+                imgsMap.put("goodsImg", goodsImgsList.get(j).getGoodsImg());
+                imgsArray[j] = imgsMap;
+            }
+            goodsMap.put("goodsImgs", imgsArray);
+            goodsMap.put("goodsName", goodsList.get(i).getGoodsName());
+            goodsMap.put("goodsDescription", goodsList.get(i).getGoodsDescription());
+            goodsMap.put("goodsPrice", goodsList.get(i).getGoodsPrice());
+            goodsMap.put("goodsLikes", goodsList.get(i).getGoodsLikes());
+            goodsMap.put("goodsStatus", goodsList.get(i).getGoodsStatus());
+            goodsArray[i] = goodsMap;
+        }
+        Map<String, Object> resultList = new HashMap<>();
+        resultList.put("goods", goodsArray);
+        System.out.println(resultList.toString());
+        JSONObject jsonObject = new JSONObject(resultList);
+        return jsonObject.toJSONString();
+    }
+
+    /**
+     * 根据关键字对商品进行模糊查询
+     *
+     * @param keyCode
+     * @return
+     */
+    @GetMapping("/goods/{keyCode}/searchGoodsByKey")
+    public String getGoodsByKey(@PathVariable("keyCode") String keyCode) {
+        List<Goods> goodsList = goodsRepository.findGoodsByGoodsNameLike("%" + keyCode + "%");
         Map[] goodsArray = new Map[goodsList.size()];
         for (int i = 0; i < goodsList.size(); i++) {
             Map<String, Object> goodsMap = new HashMap<>();

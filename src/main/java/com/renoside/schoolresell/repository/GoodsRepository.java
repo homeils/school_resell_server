@@ -10,4 +10,6 @@ public interface GoodsRepository extends JpaRepository<Goods, String> {
     List<Goods> findByUserId(String userId);
 
     List<Goods> findByGoodsStatus(int goodsStatus);
+
+    List<Goods> findGoodsByGoodsNameLike(String name);
 }

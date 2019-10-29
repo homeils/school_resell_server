@@ -105,18 +105,37 @@ public class UserController {
     }
 
     /**
-     * 根据用户ID查询用户名
+     * 根据用户ID查询登录名
      *
      * @param userId 提供用户ID
      * @return 返回用户详细信息
      */
-    @GetMapping("/user/{userId}/username")
+    @GetMapping("/user/{userId}/loginName")
     public String getUserInfo(@PathVariable("userId") String userId) {
         logger.info("查询" + "userId=" + userId + "的用户名");
         User result = userRepository.findById(userId).get();
         JSONObject jsonObject = new JSONObject();
         if (result != null) {
-            jsonObject.put("userName", result.getLoginName());
+            jsonObject.put("loginName", result.getLoginName());
+            return jsonObject.toJSONString();
+        } else {
+            throw new ForbiddenException();
+        }
+    }
+
+    /**
+     * 根据用户登录名查询用户昵称和用户头像
+     * @param loginName
+     * @return
+     */
+    @GetMapping("/user/{loginName}/getInfoByLoginName")
+    public String getInfoByLoginName(@PathVariable("loginName")String loginName) {
+        logger.info("loginName为"+loginName+"查询用户昵称和用户头像");
+        User result = userRepository.findByLoginName(loginName);
+        JSONObject jsonObject = new JSONObject();
+        if (null != result) {
+            jsonObject.put("userName", result.getUserName());
+            jsonObject.put("userImg", result.getUserImg());
             return jsonObject.toJSONString();
         } else {
             throw new ForbiddenException();
