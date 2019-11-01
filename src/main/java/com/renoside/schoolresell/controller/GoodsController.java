@@ -13,6 +13,7 @@ import com.renoside.schoolresell.repository.GoodsRepository;
 import com.renoside.schoolresell.repository.UserRepository;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.EnableAspectJAutoProxy;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -28,6 +29,8 @@ public class GoodsController {
     private GoodsRepository goodsRepository;
     @Autowired
     private GoodsImgsRepository goodsImgsRepository;
+    @Autowired
+    private TypesController typesController;
 
     /**
      * 上架商品
@@ -42,12 +45,14 @@ public class GoodsController {
     public String upShelf(@RequestHeader("token") String token,
                           @PathVariable("userId") String userId,
                           @RequestParam("goodsImgs") String goodsImgs,
+                          @RequestParam("goodsType") String goodsType,
                           Goods goods) {
         if (UserController.checkUser(userRepository, userId, token)) {
             goods.setGoodsId(UserController.createId());
             goods.setUserId(userId);
             goods.setGoodsStatus(Goods.STATUS_SELLING);
             Goods result = goodsRepository.save(goods);
+            typesController.insertGoodsToTypes(result.getGoodsId(), Integer.parseInt(goodsType));
             String[] imgsArray = goodsImgs.split("\\,");
             for (int i = 0; i < imgsArray.length; i++) {
                 GoodsImgs imgSave = new GoodsImgs();
@@ -217,6 +222,7 @@ public class GoodsController {
     public String updateGoodsInfo(@RequestHeader("token") String token,
                                   @PathVariable("goodsId") String goodsId,
                                   @RequestParam("goodsImgs") String goodsImgs,
+                                  @RequestParam("goodsType") String goodsType,
                                   Goods goods) {
         Goods goodsInfo = goodsRepository.findById(goodsId).get();
         if (UserController.checkUser(userRepository, goodsInfo.getUserId(), token)) {
@@ -227,6 +233,7 @@ public class GoodsController {
             if (goods.getGoodsPrice() != null && !goods.getGoodsPrice().equals(""))
                 goodsInfo.setGoodsPrice(goods.getGoodsPrice());
             Goods result = goodsRepository.save(goodsInfo);
+            typesController.updateGoodsToTypes(result.getGoodsId(), Integer.parseInt(goodsType));
             if (!goodsImgs.isEmpty()) {
                 String[] imgsArray = goodsImgs.split("\\,");
                 List<GoodsImgs> goodsImgsList = goodsImgsRepository.findByGoodsId(result.getGoodsId());
@@ -265,6 +272,7 @@ public class GoodsController {
                               @PathVariable("goodsId") String goodsId) {
         if (UserController.checkUser(userRepository, goodsRepository.findById(goodsId).get().getUserId(), token)) {
             goodsRepository.deleteById(goodsId);
+            typesController.deleteGoodsFromTypes(goodsId);
             List<GoodsImgs> goodsImgsList = goodsImgsRepository.findByGoodsId(goodsId);
             for (int i = 0; i < goodsImgsList.size(); i++) {
                 goodsImgsRepository.deleteById(goodsImgsList.get(i).getPriKey());
